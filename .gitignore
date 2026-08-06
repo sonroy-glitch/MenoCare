@@ -3,7 +3,7 @@ backend/.venv/
 __pycache__/
 *.pyc
 backend/MenoCare.db
-
+backend/.env
 # Node
 frontend/node_modules/
 frontend/dist/

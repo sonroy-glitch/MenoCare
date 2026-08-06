@@ -484,7 +484,7 @@ def _alert_public(a: dict) -> dict:
 # App + routes
 # ==========================================================================
 app = Flask(__name__)
-CORS(app, origins="*", supports_credentials=False)
+CORS(app, origins="*")
 
 
 @app.get("/api/health")

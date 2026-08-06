@@ -6,6 +6,7 @@ import { isLoggedIn, getCurrentUser } from '@/lib/auth'
 import { useApp } from '@/lib/AppContext'
 import { Header } from '@/components/layout/Header'
 import { BottomNav } from '@/components/layout/BottomNav'
+import { FullPageLoader } from '@/components/ui/spinner'
 
 export default function ProtectedLayout({
   children,
@@ -33,8 +34,12 @@ export default function ProtectedLayout({
     }
   }, [router, setUser])
 
-  if (!authChecked || !authenticated) {
-    return null
+  if (!authChecked) {
+    return <FullPageLoader label="Checking your session…" />
+  }
+
+  if (!authenticated) {
+    return <FullPageLoader label="Redirecting to sign in…" />
   }
 
   return (

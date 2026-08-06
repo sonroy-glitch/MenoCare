@@ -1,4 +1,4 @@
-"""Bloom — Flask backend for the Next.js frontend.
+"""MenoCare — Flask backend for the Next.js frontend.
 
 Serves the hot-flash forecast model plus account/auth, medical profiles, free-form
 symptom logging, alerts, community blogs, Tavily "latest info", and email
@@ -34,7 +34,7 @@ import email_service
 
 BASE_DIR = Path(__file__).resolve().parent
 MODEL_PATH = BASE_DIR.parent / "models" / "model.pkl"
-APP_SECRET = os.environ.get("APP_SECRET", "bloom-dev-secret-change-me").encode()
+APP_SECRET = os.environ.get("APP_SECRET", "MenoCare-dev-secret-change-me").encode()
 
 # --------------------------------------------------------------------------
 # Model (loaded once)
@@ -763,8 +763,8 @@ def list_reminders(acct):
 @require_auth
 def test_reminder(acct):
     ok = email_service.send_email(
-        acct["email"], "Bloom test reminder",
-        f"Hi {acct['name']}, this is a test reminder from Bloom. If you received it, "
+        acct["email"], "MenoCare test reminder",
+        f"Hi {acct['name']}, this is a test reminder from MenoCare. If you received it, "
         f"email reminders are working.")
     return jsonify(sent=ok, configured=email_service.is_configured(), to=acct["email"])
 
@@ -862,16 +862,17 @@ _info_cache: dict[str, tuple[float, dict]] = {}
 INFO_TTL_SECONDS = 900
 
 
-def _tavily_search(query: str) -> dict:
+def _tavily_search(query: str, topic: str = "news", depth: str = "basic") -> dict:
     key = os.environ.get("TAVILY_API_KEY", "").strip()
     if not key:
         return {"configured": False, "results": [],
                 "message": "Latest Info needs a Tavily API key. Set TAVILY_API_KEY and restart."}
     now = time.time()
-    cached = _info_cache.get(query)
+    cache_key = (query, topic, depth)
+    cached = _info_cache.get(cache_key)
     if cached and now - cached[0] < INFO_TTL_SECONDS:
         return cached[1]
-    payload = json.dumps({"query": query, "search_depth": "basic", "topic": "news",
+    payload = json.dumps({"query": query, "search_depth": depth, "topic": topic,
                           "max_results": 6, "include_answer": True}).encode()
     req = urllib.request.Request(TAVILY_URL, data=payload, method="POST",
         headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"})
@@ -882,18 +883,30 @@ def _tavily_search(query: str) -> dict:
         return {"configured": True, "error": f"Tavily error {e.code}", "results": []}
     except Exception as e:
         return {"configured": True, "error": f"Could not reach Tavily: {e}", "results": []}
-    out = {"configured": True, "query": query, "answer": data.get("answer"),
+    out = {"configured": True, "query": query, "topic": topic, "depth": depth,
+           "answer": data.get("answer"),
            "results": [{"title": r.get("title"), "url": r.get("url"),
                         "content": r.get("content"), "published_date": r.get("published_date")}
                        for r in data.get("results", [])]}
-    _info_cache[query] = (now, out)
+    _info_cache[cache_key] = (now, out)
     return out
 
 
 @app.get("/api/latest-info")
 def latest_info():
     query = (request.args.get("q") or "").strip() or DEFAULT_INFO_QUERY
-    return jsonify(_tavily_search(query))
+    # "general" surfaces clinical guidelines and reference sources (NIH, Mayo,
+    # Cleveland Clinic); "news" is for time-sensitive headlines. Anything else
+    # falls back to news so a bad param can't reach Tavily.
+    topic = request.args.get("topic", "news").strip().lower()
+    if topic not in ("news", "general"):
+        topic = "news"
+    # "advanced" costs 2 Tavily credits instead of 1 but pulls peer-reviewed
+    # sources; the evidence-based category tabs opt into it, headlines don't.
+    depth = request.args.get("depth", "basic").strip().lower()
+    if depth not in ("basic", "advanced"):
+        depth = "basic"
+    return jsonify(_tavily_search(query, topic, depth))
 
 
 # ---- AI assistant (Groq — Llama 3.3 70B Versatile) ------------------------
@@ -901,32 +914,94 @@ GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
 
 SYSTEM_PROMPT = (
-    "You are Bloom, a warm, supportive menopause companion. Give evidence-based, "
+    "You are MenoCare, a warm, supportive menopause companion. Give evidence-based, "
     "practical guidance about menopause, hot flashes, and related symptoms in a "
     "concise, encouraging tone. You are NOT a medical professional: do not "
     "diagnose or prescribe, and add a short reminder to consult a healthcare "
     "provider whenever you give health guidance. If a question is outside "
     "menopause/wellness, answer briefly and steer back gently."
+    "\n\nThe user's medical profile and recent symptom logs are provided below. "
+    "Use them to personalize every answer: tailor suggestions to their menopause "
+    "stage, lifestyle, and the symptoms they actually log, and never recommend "
+    "anything that conflicts with their listed allergies, medications, or "
+    "diagnosed conditions. Refer to their details naturally rather than reciting "
+    "the profile back, and if a field is missing or empty, simply don't assume a "
+    "value for it."
 )
 
 
 def _chat_context(acct: dict) -> str:
-    """A short personalization note built from the user's real data."""
+    """The user's real profile + recent logs, as a note for the system prompt."""
     conn = db.connect()
     try:
         mp = _load_profile(conn, acct["id"])
         entries = db.fetchall(conn,
-            "SELECT symptom_name FROM symptom_entries WHERE account_id=? "
-            "ORDER BY entry_date DESC LIMIT 8", (acct["id"],))
+            "SELECT symptom_name, severity, frequency, entry_date FROM symptom_entries "
+            "WHERE account_id=? ORDER BY entry_date DESC LIMIT 20", (acct["id"],))
     finally:
         conn.close()
-    bits = [f"User's name: {acct.get('name')}."]
-    if mp and mp.get("menopause_stage"):
-        bits.append(f"Menopause stage: {mp['menopause_stage']}.")
-    syms = sorted({e["symptom_name"] for e in entries})
-    if syms:
-        bits.append("Recently logged symptoms: " + ", ".join(syms) + ".")
-    return " ".join(bits)
+
+    lines = [f"Name: {acct.get('name')}."]
+    p = _profile_public(mp)
+
+    # Personal / anthropometric
+    h, w = p["height"], p["weight"]
+    if h and w:
+        lines.append(f"Height {h} cm, weight {w} kg (BMI {w / ((h / 100) ** 2):.1f}).")
+    elif h or w:
+        lines.append(f"Height {h or 'unknown'} cm, weight {w or 'unknown'} kg.")
+
+    lines.append(f"Menopause stage: {p['menopauseStage']}.")
+    if p["daysSinceLmp"] is not None:
+        lines.append(f"Days since last menstrual period: {p['daysSinceLmp']:.0f}.")
+
+    # Lifestyle
+    lines.append(
+        f"Lifestyle — smoking: {p['smoking']}; alcohol: {p['alcohol']}; "
+        f"exercise: {p['exerciseFrequency']}."
+    )
+    if p["occupation"]:
+        lines.append(f"Occupation: {p['occupation']}.")
+    if p["diet"]:
+        lines.append(f"Diet: {p['diet']}.")
+
+    # Medical history
+    conditions = [n for n, on in
+                  (("PCOS", p["pcos"]), ("thyroid condition", p["thyroid"]),
+                   ("diabetes", p["diabetes"])) if on]
+    lines.append("Diagnosed conditions: " + (", ".join(conditions) if conditions else "none reported") + ".")
+    if p["bloodPressure"]:
+        lines.append(f"Blood pressure: {p['bloodPressure']}.")
+    if p["menstrualHistory"]:
+        lines.append(f"Menstrual history: {p['menstrualHistory']}.")
+    if p["pregnancyHistory"]:
+        lines.append(f"Pregnancies: {p['pregnancyHistory']}.")
+    if p["cancerHistory"]:
+        lines.append(f"Cancer history: {p['cancerHistory']}.")
+
+    for label, vals in (("Family history", p["familyHistory"]),
+                        ("Current medications", p["medications"]),
+                        ("Allergies", p["allergies"])):
+        vals = [str(v).strip() for v in (vals or []) if str(v).strip()]
+        if vals:
+            lines.append(f"{label}: {', '.join(vals)}.")
+
+    # Recent symptom logs, most recent first
+    if entries:
+        logged = ", ".join(
+            e["symptom_name"]
+            + " (" + ", ".join(filter(None, (
+                f"severity {e['severity']:g}/10" if e.get("severity") is not None else None,
+                e.get("frequency") or None,
+                e["entry_date"],
+            ))) + ")"
+            for e in entries[:10]
+        )
+        lines.append(f"Recent symptom logs: {logged}.")
+    else:
+        lines.append("No symptoms logged yet.")
+
+    return " ".join(lines)
 
 
 def _groq_chat(messages: list[dict], context: str) -> dict:
@@ -935,14 +1010,18 @@ def _groq_chat(messages: list[dict], context: str) -> dict:
         return {"configured": False,
                 "reply": "The AI assistant isn't configured yet. Set GROQ_API_KEY "
                          "in the backend environment to enable Llama 3.3 chat."}
-    convo = [{"role": "system", "content": SYSTEM_PROMPT + "\n\nContext: " + context}]
+    convo = [{"role": "system",
+              "content": SYSTEM_PROMPT + "\n\n--- USER MEDICAL PROFILE ---\n" + context}]
     for m in messages[-12:]:  # keep the last few turns
         role = "assistant" if m.get("role") == "assistant" else "user"
         convo.append({"role": role, "content": str(m.get("content", ""))[:4000]})
     payload = json.dumps({"model": GROQ_MODEL, "messages": convo,
                           "temperature": 0.6, "max_tokens": 800}).encode()
+    # A real User-Agent is required: Cloudflare rejects urllib's default
+    # "Python-urllib/x.y" signature with a 403 (error 1010) before it reaches Groq.
     req = urllib.request.Request(GROQ_URL, data=payload, method="POST",
-        headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"})
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}",
+                 "User-Agent": "MenoCare/1.0"})
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
             data = json.loads(resp.read().decode())

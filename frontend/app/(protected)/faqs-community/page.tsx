@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { mockFAQs } from '@/lib/mockData'
 import { useApp } from '@/lib/AppContext'
 import { api } from '@/lib/api'
+import { LoadingBlock, Spinner } from '@/components/ui/spinner'
 import { ChevronDown, MessageCircle, Plus, Heart, PenLine } from 'lucide-react'
 
 export default function FAQsCommunityPage() {
@@ -19,27 +20,68 @@ export default function FAQsCommunityPage() {
   const [draft, setDraft] = useState({ title: '', body: '' })
   const [comment, setComment] = useState('')
 
+  // Per-action loading flags so every async control shows feedback.
+  const [loadingPosts, setLoadingPosts] = useState(true)
+  const [publishing, setPublishing] = useState(false)
+  const [openingId, setOpeningId] = useState<number | null>(null)
+  const [likingId, setLikingId] = useState<number | null>(null)
+  const [commenting, setCommenting] = useState(false)
+
   const load = () => api.listBlogs().then(setPosts).catch(() => {})
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load().finally(() => setLoadingPosts(false))
+  }, [])
 
   const submitPost = async () => {
     if (!draft.title.trim() || !draft.body.trim()) return
-    await api.createBlog({ ...draft, author: authorName })
-    setDraft({ title: '', body: '' })
-    setShowCompose(false)
-    load()
+    setPublishing(true)
+    try {
+      await api.createBlog({ ...draft, author: authorName })
+      setDraft({ title: '', body: '' })
+      setShowCompose(false)
+      await load()
+    } catch {
+      /* leave the feed as-is; the next load reconciles */
+    } finally {
+      setPublishing(false)
+    }
   }
   const openPost = async (id: number) => {
     if (open?.id === id) return setOpen(null)
-    setOpen(await api.getBlog(id))
+    setOpeningId(id)
+    try {
+      setOpen(await api.getBlog(id))
+    } catch {
+      /* leave the feed as-is; the next load reconciles */
+    } finally {
+      setOpeningId(null)
+    }
   }
   const like = async (id: number) => {
-    await api.likeBlog(id); load(); if (open?.id === id) setOpen(await api.getBlog(id))
+    setLikingId(id)
+    try {
+      await api.likeBlog(id)
+      await load()
+      if (open?.id === id) setOpen(await api.getBlog(id))
+    } catch {
+      /* leave the feed as-is; the next load reconciles */
+    } finally {
+      setLikingId(null)
+    }
   }
   const sendComment = async (id: number) => {
     if (!comment.trim()) return
-    await api.commentBlog(id, { body: comment, author: authorName })
-    setComment(''); setOpen(await api.getBlog(id)); load()
+    setCommenting(true)
+    try {
+      await api.commentBlog(id, { body: comment, author: authorName })
+      setComment('')
+      setOpen(await api.getBlog(id))
+      await load()
+    } catch {
+      /* leave the feed as-is; the next load reconciles */
+    } finally {
+      setCommenting(false)
+    }
   }
   const fmt = (iso: string) => new Date(iso.endsWith('Z') || iso.includes('+') ? iso : iso + 'Z')
     .toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
@@ -96,14 +138,18 @@ export default function FAQsCommunityPage() {
                 placeholder="Share your experience, a tip, or a question…"
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-foreground/40" />
               <div className="text-xs text-foreground/50">Posting as <b>{authorName}</b></div>
-              <button onClick={submitPost} disabled={!draft.title.trim() || !draft.body.trim()}
+              <button onClick={submitPost} disabled={publishing || !draft.title.trim() || !draft.body.trim()}
                 className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
-                <Plus className="h-4 w-4" aria-hidden="true" /> Publish
+                {publishing
+                  ? <><Spinner size="sm" /> Publishing…</>
+                  : <><Plus className="h-4 w-4" aria-hidden="true" /> Publish</>}
               </button>
             </div>
           )}
 
-          {posts.length === 0 && <p className="rounded-xl border border-border bg-card p-6 text-sm text-foreground/60">No posts yet — be the first to share.</p>}
+          {loadingPosts && <LoadingBlock label="Loading community posts…" className="rounded-xl border border-border bg-card" />}
+
+          {!loadingPosts && posts.length === 0 && <p className="rounded-xl border border-border bg-card p-6 text-sm text-foreground/60">No posts yet — be the first to share.</p>}
 
           <div className="space-y-3">
             {posts.map((p) => (
@@ -112,11 +158,17 @@ export default function FAQsCommunityPage() {
                 <p className="mt-1 text-xs text-foreground/50">by {p.author} · {fmt(p.created_at)}</p>
                 <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-foreground/80">{p.body}</p>
                 <div className="mt-3 flex gap-3">
-                  <button onClick={() => like(p.id)} className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1 text-sm text-foreground hover:border-primary">
-                    <Heart className="h-4 w-4" aria-hidden="true" /> {p.likes}
+                  <button onClick={() => like(p.id)} disabled={likingId === p.id}
+                    className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1 text-sm text-foreground hover:border-primary disabled:opacity-50">
+                    {likingId === p.id
+                      ? <Spinner size="sm" />
+                      : <Heart className="h-4 w-4" aria-hidden="true" />} {p.likes}
                   </button>
-                  <button onClick={() => openPost(p.id)} className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1 text-sm text-foreground hover:border-primary">
-                    <MessageCircle className="h-4 w-4" aria-hidden="true" /> {p.comment_count}{open?.id === p.id ? ' · hide' : ''}
+                  <button onClick={() => openPost(p.id)} disabled={openingId === p.id}
+                    className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1 text-sm text-foreground hover:border-primary disabled:opacity-50">
+                    {openingId === p.id
+                      ? <Spinner size="sm" />
+                      : <MessageCircle className="h-4 w-4" aria-hidden="true" />} {p.comment_count}{open?.id === p.id ? ' · hide' : ''}
                   </button>
                 </div>
 
@@ -131,10 +183,13 @@ export default function FAQsCommunityPage() {
                     <div className="flex gap-2">
                       <input value={comment} onChange={(e) => setComment(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && sendComment(p.id)}
+                        disabled={commenting}
                         placeholder="Add a supportive comment…"
-                        className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-foreground/40" />
-                      <button onClick={() => sendComment(p.id)} disabled={!comment.trim()}
-                        className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">Send</button>
+                        className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-foreground/40 disabled:opacity-50" />
+                      <button onClick={() => sendComment(p.id)} disabled={commenting || !comment.trim()}
+                        className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+                        {commenting ? <><Spinner size="sm" /> Sending…</> : 'Send'}
+                      </button>
                     </div>
                   </div>
                 )}

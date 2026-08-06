@@ -67,7 +67,14 @@ export const api = {
   likeBlog: (id: number) => req(`/blogs/${id}/like`, { method: 'POST' }),
 
   // latest info
-  latestInfo: (q?: string) => req(`/latest-info${q ? `?q=${encodeURIComponent(q)}` : ''}`),
+  latestInfo: (q?: string, topic?: 'news' | 'general', depth?: 'basic' | 'advanced') => {
+    const p = new URLSearchParams()
+    if (q) p.set('q', q)
+    if (topic) p.set('topic', topic)
+    if (depth) p.set('depth', depth)
+    const qs = p.toString()
+    return req(`/latest-info${qs ? `?${qs}` : ''}`)
+  },
 
   // AI assistant (Groq Llama 3.3)
   chat: (messages: { role: string; content: string }[]) =>

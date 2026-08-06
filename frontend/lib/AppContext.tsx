@@ -17,11 +17,11 @@ interface AppContextType {
   setUser: (user: User | null) => void
 
   medicalProfile: MedicalProfile
-  updateMedicalProfile: (profile: Partial<MedicalProfile>) => void
+  updateMedicalProfile: (profile: Partial<MedicalProfile>) => Promise<void>
 
   symptoms: SymptomEntry[]
-  addSymptom: (symptom: SymptomEntry) => void
-  deleteSymptom: (id: string) => void
+  addSymptom: (symptom: SymptomEntry) => Promise<void>
+  deleteSymptom: (id: string) => Promise<void>
 
   chatMessages: ChatMessage[]
   addChatMessage: (message: ChatMessage) => void
@@ -33,7 +33,10 @@ interface AppContextType {
   setMenopauseStage: (stage: 'Perimenopause' | 'Menopause' | 'Postmenopause') => void
 
   forecast: any | null
-  refresh: () => void
+  refresh: () => Promise<void>
+
+  /** True until the first load of profile/symptoms/alerts settles. */
+  loading: boolean
 
   moodScore: number
   sleepScore: number
@@ -114,6 +117,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(mockChatHistory)
   const [alerts, setAlerts] = useState<Alert[]>([])
   const [forecast, setForecast] = useState<any | null>(null)
+  const [loading, setLoading] = useState(true)
   const [menopauseStage, setMenopauseStageState] = useState<
     'Perimenopause' | 'Menopause' | 'Postmenopause'
   >('Perimenopause')
@@ -125,7 +129,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [exerciseDietScore] = useState(65)
 
   async function refresh() {
-    if (!getToken()) return
+    if (!getToken()) {
+      setLoading(false)
+      return
+    }
     try {
       const [p, s, a] = await Promise.all([
         api.getProfile(),
@@ -149,6 +156,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     } catch {
       /* not logged in yet or backend down — keep current state */
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -157,9 +166,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
-  const updateMedicalProfile = (profile: Partial<MedicalProfile>) => {
+  const updateMedicalProfile = async (profile: Partial<MedicalProfile>) => {
     setMedicalProfile((prev) => ({ ...prev, ...profile }))
-    api.updateProfile(toProfilePayload(profile)).then(refresh).catch(() => {})
+    try {
+      await api.updateProfile(toProfilePayload(profile))
+      await refresh()
+    } catch {
+      /* keep the optimistic value — the next refresh will reconcile */
+    }
   }
 
   const setMenopauseStage = (stage: 'Perimenopause' | 'Menopause' | 'Postmenopause') => {
@@ -167,10 +181,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     api.updateProfile({ menopauseStage: stage }).catch(() => {})
   }
 
-  const addSymptom = (symptom: SymptomEntry) => {
+  const addSymptom = async (symptom: SymptomEntry) => {
     setSymptoms((prev) => [symptom, ...prev]) // optimistic
-    api
-      .addSymptom({
+    try {
+      await api.addSymptom({
         symptomName: symptom.symptomName,
         severity: symptom.severity,
         frequency: symptom.frequency,
@@ -180,13 +194,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
           .toISOString()
           .slice(0, 10),
       })
-      .then(refresh)
-      .catch(() => {})
+      await refresh()
+    } catch {
+      /* keep the optimistic entry — the next refresh will reconcile */
+    }
   }
 
-  const deleteSymptom = (id: string) => {
+  const deleteSymptom = async (id: string) => {
     setSymptoms((prev) => prev.filter((s) => s.id !== id))
-    api.deleteSymptom(id).catch(() => {})
+    try {
+      await api.deleteSymptom(id)
+    } catch {
+      /* already removed locally — the next refresh will reconcile */
+    }
   }
 
   const addChatMessage = (message: ChatMessage) => {
@@ -216,6 +236,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setMenopauseStage,
         forecast,
         refresh,
+        loading,
         moodScore,
         sleepScore,
         stressScore,

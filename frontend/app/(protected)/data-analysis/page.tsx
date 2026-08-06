@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { useApp } from '@/lib/AppContext'
+import { LoadingBlock } from '@/components/ui/spinner'
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, Area, AreaChart,
@@ -13,7 +14,7 @@ const dayLabel = (iso: string) =>
   new Date(iso + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 
 export default function DataAnalysisPage() {
-  const { symptoms, forecast, medicalProfile, menopauseStage } = useApp()
+  const { symptoms, forecast, medicalProfile, menopauseStage, loading } = useApp()
   const [timeRange, setTimeRange] = useState<'7' | '30' | '90'>('30')
 
   // ---- All series below are derived from REAL logged data only ----
@@ -104,7 +105,9 @@ export default function DataAnalysisPage() {
           ))}
         </div>
 
-        {!hasData ? (
+        {loading ? (
+          <LoadingBlock label="Crunching your symptom trends…" className="rounded-2xl border border-border bg-card py-20" />
+        ) : !hasData ? (
           <div className="rounded-2xl border border-border bg-card p-12 text-center">
             <BarChart3 className="mx-auto mb-4 h-14 w-14 text-primary/30" />
             <h2 className="text-xl font-bold text-foreground mb-2">No data yet</h2>

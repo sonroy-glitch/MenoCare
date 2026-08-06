@@ -1,10 +1,11 @@
 'use client'
 
 import { useApp } from '@/lib/AppContext'
+import { LoadingBlock, Spinner } from '@/components/ui/spinner'
 import { AlertCircle, Calendar, Flame, Heart, Pill, TrendingDown, X } from 'lucide-react'
 
 export default function AlertsCenterPage() {
-  const { alerts, dismissAlert } = useApp()
+  const { alerts, dismissAlert, loading } = useApp()
   const hotFlashAlerts = alerts.filter((alert) => alert.type === 'prediction')
   const otherAlerts = alerts.filter((alert) => alert.type !== 'prediction')
 
@@ -28,12 +29,18 @@ export default function AlertsCenterPage() {
               <p className="mt-2 max-w-2xl leading-7 text-primary-foreground/85">MenoCare highlights possible upcoming hot flash patterns using the symptoms and trends you have logged. This is a pattern estimate, not a diagnosis or medical advice.</p>
             </div>
           </div>
-          <div className="mt-5 rounded-xl bg-card/15 p-4 text-sm text-primary-foreground/90">
-            {hotFlashAlerts.length > 0 ? `${hotFlashAlerts.length} hot flash prediction alert${hotFlashAlerts.length === 1 ? '' : 's'} currently active.` : 'No hot flash prediction alerts are active right now. Continue logging symptoms to improve your personal pattern view.'}
+          <div className="mt-5 flex items-center gap-2 rounded-xl bg-card/15 p-4 text-sm text-primary-foreground/90">
+            {loading ? (
+              <><Spinner size="sm" /> Checking your latest predictions…</>
+            ) : hotFlashAlerts.length > 0 ? (
+              `${hotFlashAlerts.length} hot flash prediction alert${hotFlashAlerts.length === 1 ? '' : 's'} currently active.`
+            ) : (
+              'No hot flash prediction alerts are active right now. Continue logging symptoms to improve your personal pattern view.'
+            )}
           </div>
         </section>
 
-        {hotFlashAlerts.length > 0 && (
+        {!loading && hotFlashAlerts.length > 0 && (
           <section aria-labelledby="hot-flash-alerts-heading">
             <h2 id="hot-flash-alerts-heading" className="mb-4 text-xl font-bold text-foreground">Hot flash alerts</h2>
             <div className="space-y-3">
@@ -46,7 +53,9 @@ export default function AlertsCenterPage() {
 
         <section aria-labelledby="other-alerts-heading">
           <h2 id="other-alerts-heading" className="mb-4 text-xl font-bold text-foreground">Other alerts</h2>
-          {otherAlerts.length === 0 ? (
+          {loading ? (
+            <LoadingBlock label="Loading your alerts…" className="rounded-xl border border-border bg-card" />
+          ) : otherAlerts.length === 0 ? (
             <div className="rounded-xl border border-border bg-card p-6 text-sm text-foreground/60">No other active alerts.</div>
           ) : (
             <div className="space-y-3">{otherAlerts.map((alert) => <AlertRow key={alert.id} alert={alert} onDismiss={dismissAlert} />)}</div>

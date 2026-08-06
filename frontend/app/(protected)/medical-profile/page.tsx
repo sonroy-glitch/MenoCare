@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { LoadingBlock, Spinner } from '@/components/ui/spinner'
 import {
   ChevronDown,
   Upload,
@@ -12,11 +13,12 @@ import {
 } from 'lucide-react'
 
 export default function MedicalProfilePage() {
-  const { medicalProfile, updateMedicalProfile } = useApp()
+  const { medicalProfile, updateMedicalProfile, loading } = useApp()
   const [expandedSection, setExpandedSection] = useState<string | null>(
     'personal'
   )
   const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [formData, setFormData] = useState(medicalProfile)
 
   // Re-sync the form when the real profile arrives from the backend.
@@ -32,10 +34,15 @@ export default function MedicalProfilePage() {
     setSaved(false)
   }
 
-  const handleSave = () => {
-    updateMedicalProfile(formData)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      await updateMedicalProfile(formData)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const Section = ({
@@ -146,6 +153,9 @@ export default function MedicalProfilePage() {
         </div>
       </div>
 
+      {loading ? (
+        <LoadingBlock label="Loading your medical profile…" />
+      ) : (
       <div className="max-w-4xl mx-auto px-4">
         {saved && (
           <div className="mb-4 p-3 bg-secondary border border-primary/30 text-primary rounded-lg text-sm flex items-center gap-2">
@@ -332,14 +342,19 @@ export default function MedicalProfilePage() {
           <div className="max-w-4xl mx-auto">
             <Button
               onClick={handleSave}
+              disabled={saving}
               className="w-full bg-primary hover:bg-primary/90 text-white flex items-center justify-center gap-2"
             >
-              <Save className="w-5 h-5" />
-              Save Medical Profile
+              {saving ? (
+                <><Spinner size="sm" /> Saving…</>
+              ) : (
+                <><Save className="w-5 h-5" /> Save Medical Profile</>
+              )}
             </Button>
           </div>
         </div>
       </div>
+      )}
     </div>
   )
 }

@@ -3,13 +3,61 @@
 import { useEffect, useState } from 'react'
 import { ExternalLink, Bookmark } from 'lucide-react'
 import { api } from '@/lib/api'
+import { LoadingBlock } from '@/components/ui/spinner'
 
+// Each category drives its own Tavily search.
+//
+// topic: the four evidence-based tabs use "general" so Tavily returns clinical
+// guidelines and reference sources (NIH, FDA, WHO, Mayo, Cleveland Clinic) instead
+// of the magazine coverage "news" yields. "All Articles" stays on "news" because
+// there the point *is* recent headlines.
+//
+// depth: measured per category, "advanced" is NOT uniformly better. It only helps
+// supplements (2x pmc.ncbi + EBSCO vs 0 authoritative sources on basic); for diet,
+// mindfulness and exercise it consistently returns commercial/content-farm results
+// instead (diet: 5/6 authoritative on basic vs 0/6 on advanced). So only
+// supplements pays the 2-credit "advanced" cost.
 const CATEGORIES = [
-  { value: 'all', label: 'All Articles', q: '', icon: '📰' },
-  { value: 'diet', label: 'Diet', q: 'menopause diet and nutrition', icon: '🥗' },
-  { value: 'mental_wellbeing', label: 'Mental Wellbeing', q: 'menopause mental wellbeing anxiety mood', icon: '🧘' },
-  { value: 'supplements', label: 'Supplements', q: 'menopause supplements and remedies', icon: '💊' },
-  { value: 'symptoms', label: 'Symptom Management', q: 'menopause hot flash symptom management', icon: '💪' },
+  {
+    value: 'all',
+    label: 'All Articles',
+    icon: '📰',
+    topic: 'news' as const,
+    depth: 'basic' as const,
+    q: '',
+  },
+  {
+    value: 'diet',
+    label: 'Diet',
+    icon: '🥗',
+    topic: 'general' as const,
+    depth: 'basic' as const,
+    q: 'Menopause diet: evidence-based foods that help relieve hot flashes, night sweats, mood swings, sleep problems, fatigue, and weight changes. Include phytoestrogen-rich foods, calcium, vitamin D, omega-3 fatty acids, whole grains, fruits, vegetables, and foods to avoid. Prioritize clinical guidelines, systematic reviews, and reputable sources such as NAMS, NIH, Mayo Clinic, and Harvard Health.',
+  },
+  {
+    value: 'mindfulness',
+    label: 'Mindfulness',
+    icon: '🧘',
+    topic: 'general' as const,
+    depth: 'basic' as const,
+    q: 'Best mindfulness techniques for menopause: meditation, breathing exercises, stress reduction, anxiety relief, sleep improvement, and evidence-based recommendations.',
+  },
+  {
+    value: 'supplements',
+    label: 'Supplements',
+    icon: '💊',
+    topic: 'general' as const,
+    depth: 'advanced' as const,
+    q: 'What natural supplements are effective for reducing menopause hot flashes and other vasomotor symptoms? Include evidence on black cohosh, red clover, sage, soy isoflavones, flaxseed, evening primrose oil, vitamin E, and other commonly used supplements. Summarize benefits, effectiveness, safety, side effects, drug interactions, recommended dosages, and guidance from reputable medical organizations and peer-reviewed research.',
+  },
+  {
+    value: 'exercise',
+    label: 'Exercise',
+    icon: '💪',
+    topic: 'general' as const,
+    depth: 'basic' as const,
+    q: 'Best exercises for menopausal women: strength training, aerobic exercise, yoga, Pilates, walking, and resistance training for weight management, mood improvement, bone health, and menopause symptom relief. Include evidence-based recommendations and clinical research.',
+  },
 ]
 
 interface Article { title: string; url: string; content: string; published_date?: string }
@@ -23,7 +71,7 @@ export default function LatestNewsPage() {
   useEffect(() => {
     const cat = CATEGORIES.find((c) => c.value === category)
     setLoading(true)
-    api.latestInfo(cat?.q || undefined)
+    api.latestInfo(cat?.q || undefined, cat?.topic, cat?.depth)
       .then(setData)
       .catch((e) => setData({ error: e.message, results: [] }))
       .finally(() => setLoading(false))
@@ -76,7 +124,7 @@ export default function LatestNewsPage() {
           </div>
         </div>
 
-        {loading && <p className="text-foreground/60 py-10 text-center">Fetching the latest…</p>}
+        {loading && <LoadingBlock label="Fetching the latest…" />}
 
         {!loading && data?.configured === false && (
           <div className="rounded-xl border border-primary/40 bg-primary/10 p-6 mb-8 text-sm text-foreground">

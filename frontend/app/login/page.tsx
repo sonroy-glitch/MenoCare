@@ -6,6 +6,7 @@ import { login, signup } from '@/lib/auth'
 import { useApp } from '@/lib/AppContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Spinner } from '@/components/ui/spinner'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -152,7 +153,7 @@ export default function LoginPage() {
                 className="w-full bg-primary hover:bg-primary/90 text-white"
                 disabled={loading}
               >
-                {loading ? 'Signing in...' : 'Sign In'}
+                {loading ? <><Spinner size="sm" className="mr-2" /> Signing in…</> : 'Sign In'}
               </Button>
               <p className="text-xs text-foreground/50 text-center">
                 New here? Switch to Sign Up to create an account.
@@ -229,7 +230,7 @@ export default function LoginPage() {
                 className="w-full bg-accent hover:bg-accent/90 text-white"
                 disabled={loading}
               >
-                {loading ? 'Creating account...' : 'Create Account'}
+                {loading ? <><Spinner size="sm" className="mr-2" /> Creating account…</> : 'Create Account'}
               </Button>
             </form>
           )}

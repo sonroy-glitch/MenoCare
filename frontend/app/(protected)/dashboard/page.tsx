@@ -3,6 +3,7 @@
 import { useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/lib/AppContext'
+import { Skeleton, SkeletonCard } from '@/components/ui/spinner'
 import {
   Activity, BarChart3, ClipboardList, AlertCircle, HelpCircle,
   MessageCircle, Newspaper, Flame, TrendingUp,
@@ -12,7 +13,7 @@ const EX_SCORE: Record<string, number> = { sedentary: 25, light: 50, moderate: 7
 
 export default function DashboardPage() {
   const router = useRouter()
-  const { user, menopauseStage, symptoms, medicalProfile, forecast } = useApp()
+  const { user, menopauseStage, symptoms, medicalProfile, forecast, loading } = useApp()
 
   // ---- Everything below is derived from real data (logs / profile / forecast) ----
   const recent = useMemo(() => {
@@ -83,6 +84,34 @@ export default function DashboardPage() {
 
       <div className="max-w-5xl mx-auto px-4 py-8">
         {/* Stage / streak / next-flash — all real */}
+        {loading ? (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+              {[0, 1, 2].map((i) => <SkeletonCard key={i} />)}
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div key={i} className="bg-card rounded-xl p-4 border border-border">
+                  <Skeleton className="h-7 w-12 mx-auto" />
+                  <Skeleton className="h-3 w-16 mx-auto mt-2" />
+                </div>
+              ))}
+            </div>
+            <div className="bg-secondary rounded-2xl p-6 mb-8 border border-primary/30">
+              <Skeleton className="h-5 w-40" />
+              <Skeleton className="h-3 w-64 mt-2 mb-4" />
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i}>
+                    <Skeleton className="h-3 w-20 mb-2" />
+                    <Skeleton className="h-7 w-14" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <div className="bg-card rounded-2xl p-6 border border-border">
             <div className="flex items-center justify-between mb-4">
@@ -149,6 +178,8 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+          </>
+        )}
 
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-foreground mb-4">Quick Access</h2>

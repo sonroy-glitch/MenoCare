@@ -5,6 +5,7 @@ import { useApp } from '@/lib/AppContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { SYMPTOM_LIST } from '@/lib/mockData'
+import { Spinner } from '@/components/ui/spinner'
 import { Check, Plus } from 'lucide-react'
 
 const generateId = () => Math.random().toString(36).substr(2, 9)
@@ -96,6 +97,7 @@ export default function SymptomLoggerPage() {
     notes: '',
   })
   const [submitted, setSubmitted] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   const frequencyOptions = [
     { value: 'multiple_daily', label: 'Multiple times a day' },
@@ -121,23 +123,28 @@ export default function SymptomLoggerPage() {
     return { symptom, averageSeverity, count: logs.length }
   })
 
-  const handleSubmitLog = () => {
-    if (!currentSymptom) return
+  const handleSubmitLog = async () => {
+    if (!currentSymptom || saving) return
 
-    addSymptom({
-      id: generateId(),
-      symptomName: currentSymptom,
-      severity: currentLog.severity,
-      frequency: currentLog.frequency,
-      duration: currentLog.duration,
-      notes: currentLog.notes,
-      date: new Date(),
-    })
+    setSaving(true)
+    try {
+      await addSymptom({
+        id: generateId(),
+        symptomName: currentSymptom,
+        severity: currentLog.severity,
+        frequency: currentLog.frequency,
+        duration: currentLog.duration,
+        notes: currentLog.notes,
+        date: new Date(),
+      })
 
-    setCurrentSymptom('')
-    setCurrentLog({ severity: 5, frequency: 'daily', duration: 0, notes: '' })
-    setSubmitted(true)
-    setTimeout(() => setSubmitted(false), 2000)
+      setCurrentSymptom('')
+      setCurrentLog({ severity: 5, frequency: 'daily', duration: 0, notes: '' })
+      setSubmitted(true)
+      setTimeout(() => setSubmitted(false), 2000)
+    } finally {
+      setSaving(false)
+    }
   }
 
   if (step === 'select') {
@@ -353,10 +360,14 @@ export default function SymptomLoggerPage() {
             {/* Submit Button */}
             <Button
               onClick={handleSubmitLog}
+              disabled={saving}
               className="w-full bg-primary hover:bg-primary/90 text-white py-3 rounded-lg font-bold"
             >
-              <Plus className="w-5 h-5 mr-2" />
-              Log This Symptom
+              {saving ? (
+                <><Spinner size="sm" className="mr-2" /> Logging…</>
+              ) : (
+                <><Plus className="w-5 h-5 mr-2" /> Log This Symptom</>
+              )}
             </Button>
           </div>
         )}

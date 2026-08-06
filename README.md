@@ -1,4 +1,4 @@
-# MenoCare — Menopause Symptom Forecast
+# MenoCare — Menopause Symptom Forecast System
 
 A full-stack app that predicts hot flashes and related menopause symptoms from
 self-reported health and lifestyle data. It forecasts periods of increased

@@ -3,7 +3,7 @@
 // Thin client for the Flask backend. Base URL from NEXT_PUBLIC_API_URL
 // (defaults to http://localhost:8000). The auth token is kept in localStorage.
 const BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/$/, '')
-const TOKEN_KEY = 'bloom_token'
+const TOKEN_KEY = 'MenoCare_token'
 
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null
@@ -68,4 +68,8 @@ export const api = {
 
   // latest info
   latestInfo: (q?: string) => req(`/latest-info${q ? `?q=${encodeURIComponent(q)}` : ''}`),
+
+  // AI assistant (Groq Llama 3.3)
+  chat: (messages: { role: string; content: string }[]) =>
+    req('/chat', { method: 'POST', body: JSON.stringify({ messages }) }),
 }

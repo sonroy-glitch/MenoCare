@@ -1,4 +1,4 @@
-"""Adapt a raw Kaggle CSV into Bloom's training schema.
+"""Adapt a raw Kaggle CSV into MenoCare's training schema.
 
 There is no Kaggle dataset that natively matches our columns, so this script
 maps a real health/lifestyle dataset (e.g. a menstrual-health dataset) onto the

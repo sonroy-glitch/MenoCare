@@ -14,9 +14,34 @@ import os
 import sqlite3
 from pathlib import Path
 
+
+def load_dotenv(path: Path | None = None) -> None:
+    """Load KEY=VALUE lines from backend/.env into os.environ (no dependency).
+
+    Real environment variables always win, so a shell export overrides the file.
+    Supports `export KEY=val`, quoted values, and `#` comment/blank lines.
+    """
+    env_path = path or (Path(__file__).resolve().parent / ".env")
+    if not env_path.is_file():
+        return
+    for raw in env_path.read_text().splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        if line.startswith("export "):
+            line = line[len("export "):]
+        key, _, val = line.partition("=")
+        key = key.strip()
+        val = val.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = val
+
+
+load_dotenv()
+
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 IS_PG = DATABASE_URL.startswith(("postgres://", "postgresql://"))
-SQLITE_PATH = str(Path(__file__).resolve().parent / "bloom.db")
+SQLITE_PATH = str(Path(__file__).resolve().parent / "MenoCare.db")
 
 if IS_PG:
     import psycopg2
@@ -56,16 +81,22 @@ def fetchall(conn, sql: str, params=()):
     return [dict(r) for r in cur.fetchall()]
 
 
-def insert(conn, table: str, data: dict) -> int:
-    """Insert a row; return the new id (RETURNING on PG, lastrowid on SQLite)."""
+def insert(conn, table: str, data: dict, returning: str | None = "id"):
+    """Insert a row. Returns the value of `returning` (default the new "id");
+    pass returning=None for tables without an auto id column (e.g. a table whose
+    primary key is a supplied foreign key)."""
     cols = ", ".join(data)
     ph = ", ".join("?" for _ in data)
     vals = list(data.values())
     if IS_PG:
-        cur = query(conn, f"INSERT INTO {table} ({cols}) VALUES ({ph}) RETURNING id", vals)
-        return cur.fetchone()["id"]
+        sql = f"INSERT INTO {table} ({cols}) VALUES ({ph})"
+        if returning:
+            cur = query(conn, sql + f" RETURNING {returning}", vals)
+            return cur.fetchone()[returning]
+        query(conn, sql, vals)
+        return None
     cur = query(conn, f"INSERT INTO {table} ({cols}) VALUES ({ph})", vals)
-    return cur.lastrowid
+    return cur.lastrowid if returning else None
 
 
 # Portable schema. {PK} and {NOW} differ per backend; booleans are stored as

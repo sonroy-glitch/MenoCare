@@ -521,7 +521,7 @@ def signup():
             "created_at": _now()})
         db.insert(conn, "medical_profiles", {
             "account_id": aid, "menopause_stage": data.get("menopauseStage", "Perimenopause"),
-            "race": DEFAULT_RACE, "updated_at": _now()})
+            "race": DEFAULT_RACE, "updated_at": _now()}, returning=None)
         conn.commit()
         acct = db.fetchone(conn, "SELECT * FROM accounts WHERE id=?", (aid,))
     finally:
@@ -595,7 +595,7 @@ def update_profile(acct):
     conn = db.connect()
     try:
         if _load_profile(conn, acct["id"]) is None:
-            db.insert(conn, "medical_profiles", {"account_id": acct["id"], **updates})
+            db.insert(conn, "medical_profiles", {"account_id": acct["id"], **updates}, returning=None)
         else:
             sets = ", ".join(f"{c}=?" for c in updates)
             db.query(conn, f"UPDATE medical_profiles SET {sets} WHERE account_id=?",
@@ -894,6 +894,77 @@ def _tavily_search(query: str) -> dict:
 def latest_info():
     query = (request.args.get("q") or "").strip() or DEFAULT_INFO_QUERY
     return jsonify(_tavily_search(query))
+
+
+# ---- AI assistant (Groq — Llama 3.3 70B Versatile) ------------------------
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+
+SYSTEM_PROMPT = (
+    "You are Bloom, a warm, supportive menopause companion. Give evidence-based, "
+    "practical guidance about menopause, hot flashes, and related symptoms in a "
+    "concise, encouraging tone. You are NOT a medical professional: do not "
+    "diagnose or prescribe, and add a short reminder to consult a healthcare "
+    "provider whenever you give health guidance. If a question is outside "
+    "menopause/wellness, answer briefly and steer back gently."
+)
+
+
+def _chat_context(acct: dict) -> str:
+    """A short personalization note built from the user's real data."""
+    conn = db.connect()
+    try:
+        mp = _load_profile(conn, acct["id"])
+        entries = db.fetchall(conn,
+            "SELECT symptom_name FROM symptom_entries WHERE account_id=? "
+            "ORDER BY entry_date DESC LIMIT 8", (acct["id"],))
+    finally:
+        conn.close()
+    bits = [f"User's name: {acct.get('name')}."]
+    if mp and mp.get("menopause_stage"):
+        bits.append(f"Menopause stage: {mp['menopause_stage']}.")
+    syms = sorted({e["symptom_name"] for e in entries})
+    if syms:
+        bits.append("Recently logged symptoms: " + ", ".join(syms) + ".")
+    return " ".join(bits)
+
+
+def _groq_chat(messages: list[dict], context: str) -> dict:
+    key = os.environ.get("GROQ_API_KEY", "").strip()
+    if not key:
+        return {"configured": False,
+                "reply": "The AI assistant isn't configured yet. Set GROQ_API_KEY "
+                         "in the backend environment to enable Llama 3.3 chat."}
+    convo = [{"role": "system", "content": SYSTEM_PROMPT + "\n\nContext: " + context}]
+    for m in messages[-12:]:  # keep the last few turns
+        role = "assistant" if m.get("role") == "assistant" else "user"
+        convo.append({"role": role, "content": str(m.get("content", ""))[:4000]})
+    payload = json.dumps({"model": GROQ_MODEL, "messages": convo,
+                          "temperature": 0.6, "max_tokens": 800}).encode()
+    req = urllib.request.Request(GROQ_URL, data=payload, method="POST",
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read().decode())
+        return {"configured": True, "reply": data["choices"][0]["message"]["content"],
+                "model": GROQ_MODEL}
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode()[:200] if hasattr(e, "read") else ""
+        return {"configured": True, "error": f"Groq error {e.code}: {detail}",
+                "reply": "Sorry, I couldn't reach the AI service just now. Please try again."}
+    except Exception as e:
+        return {"configured": True, "error": f"Could not reach Groq: {e}",
+                "reply": "Sorry, I couldn't reach the AI service just now. Please try again."}
+
+
+@app.post("/api/chat")
+@require_auth
+def chat(acct):
+    body = request.get_json(force=True) or {}
+    messages = body.get("messages") or []
+    if not isinstance(messages, list) or not messages:
+        return jsonify(detail="messages array is required"), 400
+    return jsonify(_groq_chat(messages, _chat_context(acct)))
 
 
 if __name__ == "__main__":

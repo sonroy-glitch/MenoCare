@@ -99,13 +99,13 @@ def schedule_next_flash_reminder(account: dict, next_flash: dict) -> dict | None
             send_at = now + timedelta(seconds=30)
 
         when = eta.strftime("%A %b %d, %H:%M UTC")
-        subject = "Bloom: a hot flash may be coming soon"
+        subject = "MenoCare: a hot flash may be coming soon"
         body = (
             f"Hi {account.get('name', 'there')},\n\n"
-            f"Your Bloom forecast predicts your next hot flash around {when}.\n"
+            f"Your MenoCare forecast predicts your next hot flash around {when}.\n"
             f"This is your heads-up about an hour ahead — a good moment to cool "
             f"your space, grab water, and dress in layers.\n\n"
-            f"Take care,\nBloom\n\n"
+            f"Take care,\nMenoCare\n\n"
             f"(Wellness insights only — not a medical device.)"
         )
         rid = db.insert(conn, "reminders", {

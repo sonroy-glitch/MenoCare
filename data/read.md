@@ -34,7 +34,7 @@ hot-flash outcome and an unambiguous menopausal stage.
 
 `sleep_hours` and `exercise_minutes` are *directional proxies* (SWAN records a
 quality rating / a yes-no, not exact hours/minutes); they preserve the sign of
-the effect so Bloom's daily inputs map onto the same axes. The feature set was
+the effect so MenoCare's daily inputs map onto the same axes. The feature set was
 chosen empirically — SWAN-backed predictors that measurably improve the model
 (5-fold CV AUC ≈ 0.64).
 

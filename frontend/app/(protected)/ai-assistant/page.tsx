@@ -4,69 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { Send, MessageCircle } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-
-const mockAIResponses: { [key: string]: string } = {
-  'hot flash': `Hot flashes are sudden waves of heat and flushing that are very common during menopause. They typically last 30 seconds to 10 minutes. To manage them:
-  
-• Keep your environment cool
-• Wear breathable, layered clothing
-• Stay hydrated
-• Avoid caffeine and alcohol
-• Practice deep breathing
-
-If your hot flashes are severe, talk to your doctor about treatment options.`,
-
-  symptom: `Different symptoms require different approaches. I'd recommend:
-  
-• Track patterns in your symptom logger
-• Note what triggers your symptoms
-• Try lifestyle changes like exercise, diet, and stress management
-• Keep records to share with your healthcare provider
-• Consider keeping a daily log
-
-Would you like specific advice for a particular symptom?`,
-
-  tired: `Fatigue during menopause is common due to hormonal changes and sleep disruption. Try these strategies:
-  
-• Get 7-9 hours of quality sleep
-• Exercise regularly (but not too close to bedtime)
-• Limit caffeine and alcohol
-• Try relaxation techniques like yoga or meditation
-• Maintain a consistent sleep schedule
-
-If fatigue persists, consult your healthcare provider.`,
-
-  mood: `Mood changes are a normal part of menopause. Here are some helpful strategies:
-  
-• Exercise regularly (great for mood)
-• Practice stress management techniques
-• Maintain social connections
-• Get enough sleep
-• Consider therapy or counseling
-• Talk to your doctor if symptoms are severe
-
-You're not alone in this experience!`,
-
-  sleep: `Sleep problems are very common during menopause. Try these recommendations:
-  
-• Keep your bedroom cool and dark
-• Establish a consistent sleep schedule
-• Avoid screens 1 hour before bed
-• Limit caffeine after 2 PM
-• Try relaxation techniques before bed
-• Exercise during the day
-
-If sleep problems persist, discuss treatment options with your doctor.`,
-
-  default: `I'm here to help! I can provide information about:
-• Hot flashes and night sweats
-• Mood and sleep changes
-• Coping strategies
-• When to see a doctor
-• Lifestyle modifications
-
-What would you like to know about?`,
-}
+import { api } from '@/lib/api'
 
 export default function AIAssistantPage() {
   const { chatMessages, addChatMessage, user } = useApp()
@@ -82,23 +20,10 @@ export default function AIAssistantPage() {
     scrollToBottom()
   }, [chatMessages])
 
-  const getAIResponse = (userMessage: string): string => {
-    const lower = userMessage.toLowerCase()
-
-    for (const [key, value] of Object.entries(mockAIResponses)) {
-      if (lower.includes(key)) {
-        return value
-      }
-    }
-
-    return mockAIResponses.default
-  }
-
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim()) return
 
-    // Add user message
     const userMsg = {
       id: `msg-${Date.now()}-user`,
       role: 'user' as const,
@@ -109,18 +34,32 @@ export default function AIAssistantPage() {
     setInput('')
     setIsLoading(true)
 
-    // Simulate API delay
-    setTimeout(() => {
-      const aiResponse = getAIResponse(input)
-      const assistantMsg = {
+    // Send the running conversation to the Groq-backed assistant.
+    const history = [...chatMessages, userMsg].map((m) => ({
+      role: m.role,
+      content: m.content,
+    }))
+    try {
+      const res = await api.chat(history)
+      addChatMessage({
         id: `msg-${Date.now()}-assistant`,
         role: 'assistant' as const,
-        content: aiResponse,
+        content: res.reply || 'Sorry, I could not generate a response.',
         timestamp: new Date(),
-      }
-      addChatMessage(assistantMsg)
+      })
+    } catch (err) {
+      addChatMessage({
+        id: `msg-${Date.now()}-assistant`,
+        role: 'assistant' as const,
+        content:
+          err instanceof Error
+            ? `Sorry, something went wrong: ${err.message}`
+            : 'Sorry, something went wrong reaching the assistant.',
+        timestamp: new Date(),
+      })
+    } finally {
       setIsLoading(false)
-    }, 800)
+    }
   }
 
   const quickQuestions = [

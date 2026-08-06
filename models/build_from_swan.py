@@ -1,4 +1,4 @@
-"""Build Bloom's training data and model from the REAL SWAN dataset.
+"""Build MenoCare's training data and model from the REAL SWAN dataset.
 
 Source: Study of Women's Health Across the Nation (SWAN), Visit 07 — ICPSR 31901
 (`31901-0001-Data.tsv`, 2,413 mid-life women). This is genuine, self-reported
@@ -6,14 +6,14 @@ clinical-survey data, unlike the directional synthetic set in
 `generate_synthetic.py`.
 
 SWAN is a *cross-sectional* survey, so it does not contain the daily-diary
-lifestyle triggers Bloom's schema also carries (caffeine, alcohol, spicy food,
+lifestyle triggers MenoCare's schema also carries (caffeine, alcohol, spicy food,
 hydration, ambient temperature, momentary stress, or trailing symptom history).
 This script therefore trains a **real-features-only** model on exactly the
 predictors SWAN genuinely measures:
 
     age, bmi, stage, is_smoker, sleep_hours, exercise_minutes  ->  hot_flash
 
-SWAN -> Bloom mapping (with codebook meanings):
+SWAN -> MenoCare mapping (with codebook meanings):
     hot_flash        <- HOTFLAS7  "Hot flashes past 2 weeks" (1=Not at all ..
                         5=Every day).  Target = 1 if >= "1-5 days" (>=2).
     flash_rate       <- HOTFLAS7 x NUMHOTF7  expected hot-flash episodes per day
@@ -45,7 +45,7 @@ SWAN -> Bloom mapping (with codebook meanings):
 
 `sleep_hours` and `exercise_minutes` are directional proxies (SWAN records
 quality / a yes-no, not exact hours/minutes); they preserve the sign of the
-effect so Bloom's daily inputs map onto the same axes. These predictors were
+effect so MenoCare's daily inputs map onto the same axes. These predictors were
 added because they measurably improve the real model (5-fold CV ROC AUC rises
 from ~0.60 to ~0.64).
 
@@ -130,7 +130,7 @@ VASOMOTOR_ITEMS = {
 
 # The real, SWAN-backed predictors. (Cross-sectional SWAN still has no caffeine,
 # spicy-food, hydration, ambient-temperature or momentary-stress columns, so
-# those Bloom fields remain excluded.)
+# those MenoCare fields remain excluded.)
 FEATURE_COLUMNS = [
     "age", "bmi", "stage_code", "is_smoker", "sleep_hours", "exercise_minutes",
     "alcohol", "soy", "depressed_mood", "race",

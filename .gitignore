@@ -2,7 +2,7 @@
 backend/.venv/
 __pycache__/
 *.pyc
-backend/bloom.db
+backend/MenoCare.db
 
 # Node
 frontend/node_modules/

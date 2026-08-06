@@ -1,4 +1,4 @@
-"""Generate Bloom's synthetic training dataset.
+"""Generate MenoCare's synthetic training dataset.
 
 There is no public dataset of *daily* menopause symptoms with lifestyle
 covariates (the closest Kaggle sets are menstrual-health data for a young

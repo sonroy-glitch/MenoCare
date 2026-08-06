@@ -1,11 +1,11 @@
-# Bloom — Menopause Symptom Forecast
+# MenoCare — Menopause Symptom Forecast
 
 A full-stack app that predicts hot flashes and related menopause symptoms from
 self-reported health and lifestyle data. It forecasts periods of increased
 symptom likelihood and turns the model's drivers into personalized, plain-language
 recommendations.
 
-> ⚕️ Bloom provides general wellness insights and is **not a medical device**.
+> ⚕️ MenoCare provides general wellness insights and is **not a medical device**.
 > Forecasts are estimates, not diagnoses.
 
 ## Project structure
@@ -31,7 +31,7 @@ DAIS_MENOPAUSE/
 
 ## Data
 
-Bloom now trains on **real data**: the [Study of Women's Health Across the Nation
+MenoCare now trains on **real data**: the [Study of Women's Health Across the Nation
 (SWAN), Visit 07 — ICPSR 31901](https://www.icpsr.umich.edu/web/ICPSR/studies/31901),
 a self-reported clinical survey of **2,413 mid-life women**. `data/menopause_symptoms.csv`
 is derived from it by `models/build_from_swan.py` with this schema:
@@ -49,9 +49,9 @@ app's focus): SWAN's late-peri (`STATUS7=3`) and natural-post (`2`) map to
 postmenopausal. Counts: menopausal 1,466 · perimenopausal 567 · postmenopausal
 114 · premenopausal 48.
 
-SWAN → Bloom mapping (codebook meanings in `build_from_swan.py`):
+SWAN → MenoCare mapping (codebook meanings in `build_from_swan.py`):
 
-| Bloom column       | SWAN source | Notes                                                    |
+| MenoCare column       | SWAN source | Notes                                                    |
 |--------------------|-------------|----------------------------------------------------------|
 | `hot_flash`        | `HOTFLAS7`  | hot flashes past 2 weeks; target = 1 if ≥ "1–5 days"     |
 | `flash_rate`       | `HOTFLAS7`  | flash-**day** rate (fraction of days w/ a flash) → timing |
@@ -170,21 +170,19 @@ Routes live in `backend/app.py`; the DB layer is `backend/db.py` and email in
 
 ### Frontend
 
-There are two frontends:
+**`frontend/`** — the app: **Next.js 16** (React 19, Tailwind, shadcn). Talks to
+the Flask backend via `lib/api.ts`.
 
-- **`MENOPAUSE_FRONTEND/`** — the current app: **Next.js 16** (React 19, Tailwind,
-  shadcn). Talks to the Flask backend via `lib/api.ts`.
-  ```bash
-  cd MENOPAUSE_FRONTEND
-  npm install
-  npm run dev                 # http://localhost:3000  (API at NEXT_PUBLIC_API_URL)
-  ```
-- `frontend/` — the older Vite/React sidebar app (superseded, still works on :5173).
+```bash
+cd frontend
+npm install
+npm run dev                   # http://localhost:3000  (API at NEXT_PUBLIC_API_URL)
+```
 
 ## Database & environment
 
 The backend uses **NeonDB Postgres** when `DATABASE_URL` is set, and falls back to
-a local **SQLite** file (`backend/bloom.db`) for dev so it runs with no database
+a local **SQLite** file (`backend/MenoCare.db`) for dev so it runs with no database
 server. The schema (`db.py`) is created automatically on startup.
 
 Backend env vars (see `backend/.env.example`):
@@ -195,6 +193,7 @@ Backend env vars (see `backend/.env.example`):
 | `APP_SECRET` | Signs auth tokens (set a long random value in production). |
 | `SMTP_HOST/PORT/USER/PASS/FROM` | smtplib config for reminder emails. `SMTP_SSL=1` for port 465. |
 | `TAVILY_API_KEY` | Latest-info search. |
+| `GROQ_API_KEY` | AI assistant chat (Groq **llama-3.3-70b-versatile**; override with `GROQ_MODEL`). |
 
 Frontend env: `NEXT_PUBLIC_API_URL` (defaults to `http://localhost:8000`).
 
@@ -209,11 +208,11 @@ logs instead of sending. `POST /api/reminders/test` sends a test email.
 
 The Next.js app runs on real backend data for: **auth** (email signup/login,
 pbkdf2-hashed passwords, bearer token), **medical profile**, **symptom logging**,
-**forecast** → **alerts** (prediction alert) → **reminders**. Community (`/api/blogs`)
-and Latest Info (`/api/latest-info`) endpoints exist and have client methods;
-the **latest-news**, **faqs-community**, and **ai-assistant** pages still render
-mock data (ai-assistant needs an LLM). Some dashboard "scores" and data-analysis
-charts remain illustrative.
+**forecast** → **alerts** (prediction alert) → **reminders**, **latest-news**
+(Tavily), **faqs-community** (blog feed), and the **AI assistant** (Groq
+`llama-3.3-70b-versatile` via `POST /api/chat`, personalized with the user's stage
+and recently logged symptoms; needs `GROQ_API_KEY`). Some dashboard "scores" and
+data-analysis charts remain illustrative.
 
 ### API (new-model backend)
 

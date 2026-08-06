@@ -9,6 +9,79 @@ import { Check, Plus } from 'lucide-react'
 
 const generateId = () => Math.random().toString(36).substr(2, 9)
 
+function PredictionCard() {
+  const { forecast, symptoms } = useApp()
+  const nf = forecast?.next_flash
+  const today = forecast?.days?.[0]
+  const bandColor: Record<string, string> = {
+    high: 'text-accent', moderate: 'text-primary', low: 'text-primary',
+  }
+
+  return (
+    <div className="mb-6 rounded-2xl border-2 border-primary/40 bg-gradient-to-r from-primary/10 to-accent/10 p-6">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h3 className="text-lg font-bold text-foreground">Hot Flash Prediction</h3>
+        <span className="rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold text-primary">
+          Random Forest model
+        </span>
+      </div>
+
+      {symptoms.length === 0 || !forecast ? (
+        <p className="text-sm text-foreground/60">
+          Log a symptom below to generate your personalized prediction.
+        </p>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="rounded-xl bg-card/70 p-4 border border-border">
+            <p className="text-xs font-semibold uppercase tracking-wide text-foreground/50">
+              Estimated time to next hot flash
+            </p>
+            {nf?.beyond_horizon || !nf?.date ? (
+              <p className="mt-1 text-xl font-bold text-foreground">None expected soon</p>
+            ) : (
+              <>
+                <p className="mt-1 text-3xl font-bold text-primary">
+                  ~{nf.days_part > 0 ? `${nf.days_part}d ` : ''}{nf.hours_part}h
+                </p>
+                <p className="text-sm text-foreground/60">
+                  around {new Date(nf.date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                </p>
+              </>
+            )}
+          </div>
+          <div className="rounded-xl bg-card/70 p-4 border border-border">
+            <p className="text-xs font-semibold uppercase tracking-wide text-foreground/50">
+              Today&apos;s risk
+            </p>
+            {today ? (
+              <>
+                <p className={`mt-1 text-3xl font-bold capitalize ${bandColor[today.band] || 'text-primary'}`}>
+                  {today.band}
+                </p>
+                <p className="text-sm text-foreground/60">
+                  {Math.round(today.probability * 100)}% likelihood
+                </p>
+              </>
+            ) : (
+              <p className="mt-1 text-xl font-bold text-foreground">—</p>
+            )}
+          </div>
+          {forecast?.summary && (
+            <p className="sm:col-span-2 text-sm leading-relaxed text-foreground/80">
+              {forecast.summary}
+            </p>
+          )}
+          {forecast?.reminder?.send_at && (
+            <p className="sm:col-span-2 text-xs text-foreground/50">
+              📧 A reminder email is scheduled ~1 hour before this prediction.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function SymptomLoggerPage() {
   const { addSymptom, symptoms } = useApp()
   const [step, setStep] = useState<'select' | 'log'>('select')
@@ -83,6 +156,8 @@ export default function SymptomLoggerPage() {
         </div>
 
         <div className="max-w-5xl mx-auto px-4">
+          <PredictionCard />
+
           {/* Symptom Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-8">
             {SYMPTOM_LIST.map((symptom) => (
@@ -150,6 +225,8 @@ export default function SymptomLoggerPage() {
       </div>
 
       <div className="max-w-3xl mx-auto px-4">
+        <PredictionCard />
+
         {submitted && (
           <div className="mb-4 p-3 bg-secondary border border-primary/30 text-primary rounded-lg text-sm flex items-center gap-2">
             <Check className="w-4 h-4" />

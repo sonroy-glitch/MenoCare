@@ -3,7 +3,7 @@
 import { User } from './mockData'
 import { api, setToken, getToken } from './api'
 
-const USER_KEY = 'bloom_user'
+const USER_KEY = 'MenoCare_user'
 
 export interface AuthState {
   isLoggedIn: boolean

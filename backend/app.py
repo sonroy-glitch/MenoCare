@@ -560,7 +560,10 @@ def _load_profile(conn, account_id):
 def get_profile(acct):
     conn = db.connect()
     try:
-        return jsonify(_profile_public(_load_profile(conn, acct["id"])))
+        # `name` lives on accounts, not medical_profiles, but the Medical Profile
+        # screen edits it alongside the clinical fields, so it travels with them.
+        return jsonify({**_profile_public(_load_profile(conn, acct["id"])),
+                        "name": acct.get("name") or ""})
     finally:
         conn.close()
 
@@ -600,8 +603,15 @@ def update_profile(acct):
             sets = ", ".join(f"{c}=?" for c in updates)
             db.query(conn, f"UPDATE medical_profiles SET {sets} WHERE account_id=?",
                      (*updates.values(), acct["id"]))
+        # Display name is stored on the account row.
+        name = data.get("name")
+        if isinstance(name, str) and name.strip():
+            db.query(conn, "UPDATE accounts SET name=? WHERE id=?",
+                     (name.strip(), acct["id"]))
         conn.commit()
-        return jsonify(_profile_public(_load_profile(conn, acct["id"])))
+        fresh = db.fetchone(conn, "SELECT name FROM accounts WHERE id=?", (acct["id"],))
+        return jsonify({**_profile_public(_load_profile(conn, acct["id"])),
+                        "name": (fresh or {}).get("name") or ""})
     finally:
         conn.close()
 

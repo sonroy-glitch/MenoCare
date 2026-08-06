@@ -32,7 +32,7 @@ const CATEGORIES = [
     icon: '🥗',
     topic: 'general' as const,
     depth: 'basic' as const,
-    q: 'Menopause diet: evidence-based foods that help relieve hot flashes, night sweats, mood swings, sleep problems, fatigue, and weight changes. Include phytoestrogen-rich foods, calcium, vitamin D, omega-3 fatty acids, whole grains, fruits, vegetables, and foods to avoid. Prioritize clinical guidelines, systematic reviews, and reputable sources such as NAMS, NIH, Mayo Clinic, and Harvard Health.',
+    q: 'What are the best foods and dietary patterns to reduce menopause symptoms such as hot flashes, night sweats, mood swings, sleep disturbances, and fatigue? Include evidence-based recommendations, foods to eat, foods to limit, nutrients linked to symptom relief, and findings from reputable medical organizations and peer-reviewed research',
   },
   {
     value: 'mindfulness',

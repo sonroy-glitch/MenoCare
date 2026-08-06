@@ -44,6 +44,15 @@ export async function signup(
   return { isLoggedIn: true, user }
 }
 
+/** Keep the cached user in sync when the name is edited on the profile screen. */
+export function setStoredUserName(name: string): User | null {
+  const user = getCurrentUser()
+  if (!user) return null
+  const updated = { ...user, name }
+  persistUser(updated)
+  return updated
+}
+
 export function logout(): void {
   setToken(null)
   if (typeof window !== 'undefined') localStorage.removeItem(USER_KEY)

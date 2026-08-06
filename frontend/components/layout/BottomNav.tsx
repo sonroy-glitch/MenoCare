@@ -5,16 +5,21 @@ import {
   LayoutDashboard,
   ClipboardList,
   BarChart3,
+  Activity,
   AlertCircle,
   HelpCircle,
   MessageCircle,
   Newspaper,
 } from 'lucide-react'
 
+// Order and icons mirror the dashboard's Quick Access grid so the two
+// navigation surfaces agree. Data Analysis takes BarChart3 (as it does there),
+// which frees Activity for the symptom logger and keeps every icon unique.
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/medical-profile', label: 'Medical', icon: ClipboardList },
-  { href: '/symptom-logger', label: 'Logger', icon: BarChart3 },
+  { href: '/data-analysis', label: 'Analysis', icon: BarChart3 },
+  { href: '/symptom-logger', label: 'Logger', icon: Activity },
   { href: '/alerts-center', label: 'Alerts', icon: AlertCircle },
   { href: '/faqs-community', label: 'FAQs', icon: HelpCircle },
   { href: '/ai-assistant', label: 'Assistant', icon: MessageCircle },

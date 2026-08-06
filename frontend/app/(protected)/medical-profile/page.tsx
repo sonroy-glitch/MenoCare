@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input'
 import { LoadingBlock, Spinner } from '@/components/ui/spinner'
 import {
   ChevronDown,
-  Upload,
   Save,
   AlertCircle,
 } from 'lucide-react'
@@ -168,8 +167,8 @@ export default function MedicalProfilePage() {
         <Section id="personal" title="1. Personal Information">
           <FormField
             label="Name"
-            value={formData.userId}
-            onChange={(v) => handleInputChange('userId', v)}
+            value={formData.name}
+            onChange={(v) => handleInputChange('name', v)}
           />
           <div className="grid grid-cols-2 gap-4">
             <FormField
@@ -301,40 +300,6 @@ export default function MedicalProfilePage() {
             value={formData.diet}
             onChange={(v) => handleInputChange('diet', v)}
           />
-        </Section>
-
-        {/* File Uploads */}
-        <Section id="files" title="8. Medical Documents">
-          <div className="space-y-4">
-            {[
-              { type: 'lab', label: 'Lab Reports' },
-              { type: 'blood', label: 'Blood Reports' },
-              { type: 'hormone', label: 'Hormone Reports' },
-              { type: 'wearable', label: 'Wearable/App Data' },
-            ].map((fileType) => (
-              <div
-                key={fileType.type}
-                className="p-4 border-2 border-dashed border-border rounded-lg hover:border-primary transition-colors cursor-pointer"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Upload className="w-5 h-5 text-primary" />
-                    <div>
-                      <p className="font-medium text-foreground">
-                        {fileType.label}
-                      </p>
-                      <p className="text-xs text-foreground/50">
-                        {formData.fileUploads
-                          .filter((f) => f.type === fileType.type)
-                          .map((f) => f.name)
-                          .join(', ') || 'Click to upload'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
         </Section>
 
         {/* Save Button */}

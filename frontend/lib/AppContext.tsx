@@ -11,6 +11,7 @@ import {
   User,
 } from './mockData'
 import { api, getToken } from './api'
+import { setStoredUserName } from './auth'
 
 interface AppContextType {
   user: User | null
@@ -51,7 +52,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined)
 function toProfile(p: any): MedicalProfile {
   return {
     ...mockMedicalProfile,
-    userId: 'me',
+    name: p.name ?? '',
     height: p.height ?? mockMedicalProfile.height,
     weight: p.weight ?? mockMedicalProfile.weight,
     smoking: p.smoking ?? 'never',
@@ -69,7 +70,6 @@ function toProfile(p: any): MedicalProfile {
     medications: p.medications ?? [],
     allergies: p.allergies ?? [],
     diet: p.diet ?? '',
-    fileUploads: mockMedicalProfile.fileUploads,
   }
 }
 
@@ -77,7 +77,7 @@ function toProfile(p: any): MedicalProfile {
 function toProfilePayload(p: Partial<MedicalProfile> & { menopauseStage?: string }): any {
   const out: any = {}
   const keys: (keyof MedicalProfile)[] = [
-    'height', 'weight', 'smoking', 'alcohol', 'exerciseFrequency', 'occupation',
+    'name', 'height', 'weight', 'smoking', 'alcohol', 'exerciseFrequency', 'occupation',
     'menstrualHistory', 'pregnancyHistory', 'pcos', 'thyroid', 'diabetes',
     'bloodPressure', 'cancerHistory', 'familyHistory', 'medications', 'allergies', 'diet',
   ]
@@ -170,6 +170,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setMedicalProfile((prev) => ({ ...prev, ...profile }))
     try {
       await api.updateProfile(toProfilePayload(profile))
+      // The header and greeting read the name from the cached user, so a rename
+      // has to land there too or it looks unsaved until the next sign-in.
+      if (profile.name?.trim()) {
+        const updated = setStoredUserName(profile.name.trim())
+        if (updated) setUser(updated)
+      }
       await refresh()
     } catch {
       /* keep the optimistic value — the next refresh will reconcile */

@@ -9,7 +9,8 @@ export interface User {
 }
 
 export interface MedicalProfile {
-  userId: string
+  /** Display name — stored on the account row, edited on this screen. */
+  name: string
   // Personal Info
   height: number // cm
   weight: number // kg
@@ -33,16 +34,8 @@ export interface MedicalProfile {
   allergies: string[]
   // Diet
   diet: string
-  // Files
-  fileUploads: FileUpload[]
 }
 
-export interface FileUpload {
-  id: string
-  type: 'lab' | 'blood' | 'hormone' | 'wearable'
-  name: string
-  uploadedAt: Date
-}
 
 export interface SymptomEntry {
   id: string
@@ -127,7 +120,7 @@ export const SYMPTOM_LIST = [
 export const MENOPAUSE_STAGES = ['Perimenopause', 'Menopause', 'Postmenopause']
 
 export const mockMedicalProfile: MedicalProfile = {
-  userId: 'user-1',
+  name: '',
   height: 165,
   weight: 68,
   smoking: 'never',
@@ -145,20 +138,6 @@ export const mockMedicalProfile: MedicalProfile = {
   medications: ['Vitamin D3', 'Magnesium'],
   allergies: ['Penicillin'],
   diet: 'Balanced with focus on calcium and omega-3',
-  fileUploads: [
-    {
-      id: 'file-1',
-      type: 'lab',
-      name: 'Complete Blood Count - March 2024',
-      uploadedAt: new Date('2024-03-15'),
-    },
-    {
-      id: 'file-2',
-      type: 'hormone',
-      name: 'Hormone Panel - Feb 2024',
-      uploadedAt: new Date('2024-02-10'),
-    },
-  ],
 }
 
 export const mockSymptomEntries: SymptomEntry[] = [

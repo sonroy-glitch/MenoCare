@@ -4,6 +4,11 @@
 // (defaults to http://localhost:8000). The auth token is kept in localStorage.
 const BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/$/, '')
 const TOKEN_KEY = 'MenoCare_token'
+export const USER_KEY = 'MenoCare_user'
+
+// Endpoints where a 401 is a normal answer ("wrong password") rather than an
+// expired session, so they must not trigger the auto sign-out below.
+const CREDENTIAL_PATHS = ['/auth/login', '/auth/signup']
 
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null
@@ -13,6 +18,18 @@ export function setToken(t: string | null) {
   if (typeof window === 'undefined') return
   if (t) localStorage.setItem(TOKEN_KEY, t)
   else localStorage.removeItem(TOKEN_KEY)
+}
+
+// A stored token is only a string — nothing validates it until the server
+// rejects it. If the backend's APP_SECRET is rotated, or it starts pointing at a
+// different database, every stored token silently stops working. Without this,
+// the app still renders as "logged in" (isLoggedIn() just checks the key exists)
+// while every request 401s, and the user has no way out but clearing storage.
+function clearSessionAndRedirect() {
+  if (typeof window === 'undefined') return
+  setToken(null)
+  localStorage.removeItem(USER_KEY)
+  if (window.location.pathname !== '/login') window.location.replace('/login')
 }
 
 async function req(path: string, options: RequestInit = {}) {
@@ -29,6 +46,9 @@ async function req(path: string, options: RequestInit = {}) {
     try {
       detail = (await res.json()).detail || detail
     } catch {}
+    if (res.status === 401 && !CREDENTIAL_PATHS.some((p) => path.startsWith(p))) {
+      clearSessionAndRedirect()
+    }
     throw new Error(detail)
   }
   if (res.status === 204) return null

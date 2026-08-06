@@ -1,9 +1,7 @@
 'use client'
 
 import { User } from './mockData'
-import { api, setToken, getToken } from './api'
-
-const USER_KEY = 'MenoCare_user'
+import { api, setToken, getToken, USER_KEY } from './api'
 
 export interface AuthState {
   isLoggedIn: boolean

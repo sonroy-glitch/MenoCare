@@ -1046,7 +1046,15 @@ def chat(acct):
     return jsonify(_groq_chat(messages, _chat_context(acct)))
 
 
+# Startup work runs at import time so it also happens under a WSGI server
+# (gunicorn on Render), where the __main__ block below never executes.
+# init_db() is idempotent (CREATE TABLE IF NOT EXISTS). start_scheduler() is not,
+# so the service must run a single worker or reminders would send once per worker.
+db.init_db()
+email_service.start_scheduler()
+
 if __name__ == "__main__":
-    db.init_db()
-    email_service.start_scheduler()
-    app.run(host="0.0.0.0", port=8000, debug=True, use_reloader=False)
+    # Local dev only. debug must stay off in any deployed environment: the
+    # Werkzeug debugger allows remote code execution on a public host.
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "8000")),
+            debug=os.environ.get("FLASK_DEBUG") == "1", use_reloader=False)

@@ -1,0 +1,9 @@
+# Nixpacks builds from the repo root, and its Python provider only detects a
+# project — and only generates a `pip install` step — when it finds a
+# requirements.txt *here*. Without this file there is no install phase, so pip
+# is never put on PATH and a custom build command fails with
+# "pip: command not found". The real pins live in backend/requirements.txt.
+#
+# The build root has to stay the repo root because backend/app.py loads
+# ../models/model.pkl at import time — see railway.toml.
+-r backend/requirements.txt

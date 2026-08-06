@@ -1,7 +1,11 @@
 flask==3.1.0
 flask-cors==5.0.0
 gunicorn==23.0.0
-scikit-learn==1.6.1
+# Pinned to match models/model.pkl (the primary forecast model, pickled by
+# 1.6.0). models/rate_model.pkl was pickled by 1.6.1, so one of the two always
+# warns; matching the primary model keeps the mismatch to 2 estimators instead
+# of 504. Retrain both with one version to clear it properly.
+scikit-learn==1.6.0
 pandas==2.2.3
 numpy==2.2.1
 psycopg2-binary==2.9.12

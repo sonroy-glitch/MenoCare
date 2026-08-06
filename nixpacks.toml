@@ -1,7 +1,0 @@
-# Nixpacks builds from the repo root (see railway.toml for why), where there is
-# no requirements.txt / pyproject.toml to detect — and a frontend/ directory that
-# should NOT be built. Pin the provider explicitly so the image is Python only.
-providers = ["python"]
-
-[variables]
-NIXPACKS_PYTHON_VERSION = "3.12"

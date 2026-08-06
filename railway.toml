@@ -6,14 +6,17 @@
 # models/ directory crashes the service on boot. Leave the Railway service's
 # "Root Directory" setting empty (= repo root); pointing it at backend/ breaks
 # model loading.
+#
+# There is deliberately no [build] buildCommand here. Nixpacks installs
+# dependencies in its own "install" phase, which it generates from the
+# requirements.txt at the build root (see the shim in ./requirements.txt).
+# A custom buildCommand runs in a later phase where pip is not on PATH, which
+# fails with "pip: command not found".
 
 [build]
 builder = "NIXPACKS"
-# requirements.txt is not at the repo root, so Nixpacks cannot auto-detect the
-# Python provider here — nixpacks.toml alongside this file forces it.
-buildCommand = "pip install -r backend/requirements.txt"
 # Don't rebuild the API when only the Next.js frontend changes.
-watchPatterns = ["backend/**", "models/**", "railway.toml", "nixpacks.toml"]
+watchPatterns = ["backend/**", "models/**", "requirements.txt", "railway.toml"]
 
 [deploy]
 # --chdir makes gunicorn import backend/app.py while keeping the repo root as the

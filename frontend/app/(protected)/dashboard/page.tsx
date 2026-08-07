@@ -1,19 +1,35 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/lib/AppContext'
-import { Skeleton, SkeletonCard } from '@/components/ui/spinner'
+import { Skeleton, SkeletonCard, Spinner } from '@/components/ui/spinner'
+import { MENOPAUSE_STAGES, type MenopauseStage } from '@/lib/mockData'
 import {
   Activity, BarChart3, ClipboardList, AlertCircle, HelpCircle,
-  MessageCircle, Newspaper, Flame, TrendingUp,
+  MessageCircle, Newspaper, Flame, TrendingUp, ChevronDown,
 } from 'lucide-react'
 
 const EX_SCORE: Record<string, number> = { sedentary: 25, light: 50, moderate: 75, vigorous: 95 }
 
 export default function DashboardPage() {
   const router = useRouter()
-  const { user, menopauseStage, symptoms, medicalProfile, forecast, loading } = useApp()
+  const { user, menopauseStage, setMenopauseStage, symptoms, medicalProfile, forecast, loading } =
+    useApp()
+  const [savingStage, setSavingStage] = useState(false)
+  const [stageError, setStageError] = useState('')
+
+  const handleStageChange = async (stage: MenopauseStage) => {
+    setSavingStage(true)
+    setStageError('')
+    try {
+      await setMenopauseStage(stage)
+    } catch (err) {
+      setStageError(err instanceof Error ? err.message : 'Could not save. Please try again.')
+    } finally {
+      setSavingStage(false)
+    }
+  }
 
   // ---- Everything below is derived from real data (logs / profile / forecast) ----
   const recent = useMemo(() => {
@@ -118,8 +134,34 @@ export default function DashboardPage() {
               <h3 className="text-sm font-medium text-foreground/60">Menopause Stage</h3>
               <Flame className="w-5 h-5 text-accent" />
             </div>
-            <p className="text-3xl font-bold text-foreground mb-1">{menopauseStage}</p>
-            <p className="text-xs text-foreground/50">Current phase</p>
+            <div className="relative">
+              <select
+                aria-label="Menopause stage"
+                value={menopauseStage}
+                disabled={savingStage}
+                onChange={(e) => handleStageChange(e.target.value as MenopauseStage)}
+                className="w-full appearance-none bg-transparent text-3xl font-bold text-foreground mb-1 pr-8 cursor-pointer rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60 disabled:cursor-wait"
+              >
+                {MENOPAUSE_STAGES.map((s) => (
+                  <option key={s} value={s} className="text-base bg-card text-foreground">
+                    {s}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                className="pointer-events-none absolute right-0 top-3 w-5 h-5 text-foreground/40"
+                aria-hidden="true"
+              />
+            </div>
+            <p className="text-xs text-foreground/50 flex items-center gap-1.5">
+              {savingStage ? (
+                <><Spinner size="sm" /> Saving…</>
+              ) : stageError ? (
+                <span className="text-destructive">{stageError}</span>
+              ) : (
+                'Current phase — tap to change'
+              )}
+            </p>
           </div>
 
           <div className="bg-card rounded-2xl p-6 border border-border">

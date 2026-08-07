@@ -117,7 +117,8 @@ export const SYMPTOM_LIST = [
   'Pain',
 ]
 
-export const MENOPAUSE_STAGES = ['Perimenopause', 'Menopause', 'Postmenopause']
+export const MENOPAUSE_STAGES = ['Perimenopause', 'Menopause', 'Postmenopause'] as const
+export type MenopauseStage = (typeof MENOPAUSE_STAGES)[number]
 
 export const mockMedicalProfile: MedicalProfile = {
   name: '',

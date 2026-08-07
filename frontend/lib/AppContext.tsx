@@ -5,6 +5,7 @@ import {
   MedicalProfile,
   SymptomEntry,
   ChatMessage,
+  MenopauseStage,
   Alert,
   mockMedicalProfile,
   mockChatHistory,
@@ -30,8 +31,8 @@ interface AppContextType {
   alerts: Alert[]
   dismissAlert: (id: string) => void
 
-  menopauseStage: 'Perimenopause' | 'Menopause' | 'Postmenopause'
-  setMenopauseStage: (stage: 'Perimenopause' | 'Menopause' | 'Postmenopause') => void
+  menopauseStage: MenopauseStage
+  setMenopauseStage: (stage: MenopauseStage) => Promise<void>
 
   forecast: any | null
   refresh: () => Promise<void>
@@ -118,9 +119,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [alerts, setAlerts] = useState<Alert[]>([])
   const [forecast, setForecast] = useState<any | null>(null)
   const [loading, setLoading] = useState(true)
-  const [menopauseStage, setMenopauseStageState] = useState<
-    'Perimenopause' | 'Menopause' | 'Postmenopause'
-  >('Perimenopause')
+  const [menopauseStage, setMenopauseStageState] = useState<MenopauseStage>('Perimenopause')
 
   const [moodScore] = useState(68)
   const [sleepScore] = useState(55)
@@ -182,9 +181,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const setMenopauseStage = (stage: 'Perimenopause' | 'Menopause' | 'Postmenopause') => {
-    setMenopauseStageState(stage)
-    api.updateProfile({ menopauseStage: stage }).catch(() => {})
+  const setMenopauseStage = async (stage: MenopauseStage) => {
+    const previous = menopauseStage
+    setMenopauseStageState(stage) // optimistic
+    try {
+      await api.updateProfile({ menopauseStage: stage })
+      // Stage is a model input, so re-run the forecast against the new value.
+      await refresh()
+    } catch {
+      setMenopauseStageState(previous) // save failed — don't show a value the DB doesn't have
+      throw new Error('Could not save your menopause stage. Please try again.')
+    }
   }
 
   const addSymptom = async (symptom: SymptomEntry) => {
